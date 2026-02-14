@@ -69,18 +69,18 @@ public class AuthService implements AuthInputPort {
     }
 
     @Override
-    public void register(String username, String password) {
+    public void register(String username, String password, Set<Role> roles) {
         if (loadUserPort.loadUserByUsername(username).isPresent()) {
             metricsService.incrementUserRegistrationFailure("username_exists");
             throw new com.hyperativa.javaEspecialista.domain.exception.UsernameAlreadyExistsException(username);
         }
 
         String encodedPassword = passwordEncoder.encode(password);
-        Set<Role> roles = Set.of(Role.USER);
-        User newUser = new User(java.util.UUID.randomUUID(), username, encodedPassword, roles);
+        Set<Role> assignedRoles = (roles == null || roles.isEmpty()) ? Set.of(Role.USER) : roles;
+        User newUser = new User(java.util.UUID.randomUUID(), username, encodedPassword, assignedRoles);
 
         saveUserPort.save(newUser);
-        metricsService.incrementUserRegistered("USER");
+        metricsService.incrementUserRegistered(assignedRoles.toString());
     }
 
     public interface TokenProvider {

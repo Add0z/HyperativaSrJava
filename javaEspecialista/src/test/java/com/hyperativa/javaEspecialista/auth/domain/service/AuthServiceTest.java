@@ -91,11 +91,11 @@ class AuthServiceTest {
         when(passwordEncoder.encode("pass")).thenReturn("encodedPass");
 
         // Act
-        authService.register("newuser", "pass");
+        authService.register("newuser", "pass", null);
 
         // Assert
         verify(saveUserPort).save(argThat(u -> u.roles().contains(Role.USER)));
-        verify(metricsService).incrementUserRegistered("USER");
+        verify(metricsService).incrementUserRegistered("[USER]");
     }
 
     @Test
@@ -106,7 +106,7 @@ class AuthServiceTest {
 
         // Act & Assert
         assertThrows(com.hyperativa.javaEspecialista.domain.exception.UsernameAlreadyExistsException.class,
-                () -> authService.register("user", "pass"));
+                () -> authService.register("user", "pass", null));
         verify(metricsService).incrementUserRegistrationFailure("username_exists");
     }
 }

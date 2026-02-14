@@ -118,8 +118,8 @@ class AuthControllerTest {
     @Test
     @WithMockUser
     void register_ShouldReturnOk() throws Exception {
-        AuthController.RegisterRequest request = new AuthController.RegisterRequest("user", "StrongPass1!");
-        doNothing().when(authService).register(anyString(), anyString());
+        AuthController.RegisterRequest request = new AuthController.RegisterRequest("user", "StrongPass1!", null);
+        doNothing().when(authService).register(anyString(), anyString(), org.mockito.ArgumentMatchers.any());
 
         mockMvc.perform(post("/api/v1/auth/register")
                 .with(csrf())
