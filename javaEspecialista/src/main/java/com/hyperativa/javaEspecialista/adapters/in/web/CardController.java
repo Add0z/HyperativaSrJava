@@ -39,6 +39,7 @@ public class CardController {
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Register a new card", description = "Registers a card. If it exists, returns the existing UUID.")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<CardResponse> registerCard(@Valid @RequestBody CardRequest request,
             java.security.Principal principal) {
         log.info("User {} registered a card: {}", principal.getName(), maskCardNumber(request.cardNumber()));
