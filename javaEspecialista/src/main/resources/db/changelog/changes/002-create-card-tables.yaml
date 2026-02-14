@@ -1,0 +1,56 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-cards-table
+      author: hyperativa
+      changes:
+        - createTable:
+            tableName: cards
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: uuid
+                  type: CHAR(36)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_cards_uuid
+              - column:
+                  name: card_hash
+                  type: BINARY(32)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uk_cards_card_hash
+              - column:
+                  name: encrypted_card
+                  type: BLOB
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encryption_iv
+                  type: BINARY(12)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encryption_tag
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - createIndex:
+            indexName: idx_cards_created_at
+            tableName: cards
+            columns:
+              - column:
+                  name: created_at
