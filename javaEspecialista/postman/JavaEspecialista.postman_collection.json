@@ -38,11 +38,13 @@
                             }
                         },
                         "url": {
-                            "raw": "{{base_url}}/auth/login",
+                            "raw": "{{base_url}}/api/v1/auth/login",
                             "host": [
                                 "{{base_url}}"
                             ],
                             "path": [
+                                "api",
+                                "v1",
                                 "auth",
                                 "login"
                             ]
@@ -65,11 +67,13 @@
                             }
                         },
                         "url": {
-                            "raw": "{{base_url}}/auth/register",
+                            "raw": "{{base_url}}/api/v1/auth/register",
                             "host": [
                                 "{{base_url}}"
                             ],
                             "path": [
+                                "api",
+                                "v1",
                                 "auth",
                                 "register"
                             ]
@@ -115,36 +119,6 @@
                                 "api",
                                 "v1",
                                 "cards"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get Card (URL Param)",
-                    "request": {
-                        "auth": {
-                            "type": "bearer",
-                            "bearer": [
-                                {
-                                    "key": "token",
-                                    "value": "{{jwt_token}}",
-                                    "type": "string"
-                                }
-                            ]
-                        },
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/api/v1/cards/{{cardNumber}}",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "v1",
-                                "cards",
-                                "{{cardNumber}}"
                             ]
                         }
                     },
@@ -225,6 +199,46 @@
                                 "cards"
                             ]
                         }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete Card (LGPD)",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"cardNumber\": \"{{cardNumber}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/cards/delete",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "cards",
+                                "delete"
+                            ]
+                        },
+                        "description": "Permanently erases card data per LGPD Art. 18 (right to erasure). Requires ADMIN role."
                     },
                     "response": []
                 }
