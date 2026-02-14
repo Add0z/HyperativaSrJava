@@ -68,6 +68,21 @@ public class CryptoAdapter implements CryptoPort {
     }
 
     @Override
+    public String decrypt(byte[] cipherText, byte[] iv) {
+        try {
+            Cipher cipher = Cipher.getInstance(AES_ALGORITHM);
+            GCMParameterSpec parameterSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
+            cipher.init(Cipher.DECRYPT_MODE, encryptionKey, parameterSpec);
+            byte[] result = cipher.doFinal(cipherText);
+            return new String(result, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            metricsService.incrementCryptoFailure();
+            throw new com.hyperativa.javaEspecialista.domain.exception.EncryptionException("Error during decryption",
+                    e);
+        }
+    }
+
+    @Override
     public byte[] generateIv() {
         byte[] iv = new byte[IV_LENGTH];
         new SecureRandom().nextBytes(iv);
