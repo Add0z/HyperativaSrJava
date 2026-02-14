@@ -112,7 +112,24 @@ class CardControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.token").value(uuid.toString()));
+    }
+
+    @Test
+    @WithMockUser
+    void registerCard_WhenCardExists_ShouldReturnConflict() throws Exception {
+        CardRequest request = new CardRequest("1234567890123452");
+        when(cardInputPort.registerCard(anyString()))
+                .thenThrow(new com.hyperativa.javaEspecialista.domain.exception.DuplicateCardException(
+                        "Card already registered"));
+
+        mockMvc.perform(post("/api/v1/cards")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Card Already Registered"));
     }
 
     @Test

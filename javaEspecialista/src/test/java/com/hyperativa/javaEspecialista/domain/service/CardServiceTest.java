@@ -11,6 +11,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import com.hyperativa.javaEspecialista.domain.exception.DuplicateCardException;
+import com.hyperativa.javaEspecialista.domain.exception.CardValidationException;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -69,17 +71,16 @@ class CardServiceTest {
     }
 
     @Test
-    void registerCard_WhenCardAlreadyExists_ShouldReturnExistingUuid() {
+    void registerCard_WhenCardAlreadyExists_ShouldThrowDuplicateCardException() {
         // Arrange
         UUID existingUuid = UUID.randomUUID();
         when(cryptoPort.hash(VALID_CARD_NUMBER)).thenReturn(HASH);
         when(cardRepository.findUuidByHash(HASH)).thenReturn(Optional.of(existingUuid));
 
-        // Act
-        UUID result = cardService.registerCard(VALID_CARD_NUMBER);
+        // Act & Assert
+        assertThrows(DuplicateCardException.class,
+                () -> cardService.registerCard(VALID_CARD_NUMBER));
 
-        // Assert
-        assertEquals(existingUuid, result);
         verify(cardRepository, never()).save(any(Card.class));
         verify(metricsService, never()).incrementCardsCreated();
         verify(metricsService).incrementCardsAlreadyExists();
@@ -88,7 +89,8 @@ class CardServiceTest {
     @Test
     void registerCard_WhenInvalidCardNumber_ShouldThrowException() {
         // Act & Assert
-        assertThrows(com.hyperativa.javaEspecialista.domain.exception.CardValidationException.class, () -> cardService.registerCard("invalid"));
+        assertThrows(CardValidationException.class,
+                () -> cardService.registerCard("invalid"));
         verifyNoInteractions(cardRepository, cryptoPort, metricsService);
     }
 

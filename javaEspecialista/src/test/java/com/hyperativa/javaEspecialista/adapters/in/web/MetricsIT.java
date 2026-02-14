@@ -76,9 +76,10 @@ class MetricsIT {
                                 .content("{\"cardNumber\": \"" + validCard + "\"}"))
                                 .andExpect(status().isCreated());
 
-                mockMvc.perform(get("/api/v1/cards/" + validCard)
-                                .with(jwt()))
-                                .andExpect(status().isOk());
+                mockMvc.perform(post("/api/v1/cards").with(jwt())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"cardNumber\": \"" + validCard + "\"}"))
+                                .andExpect(status().isConflict());
 
                 mockMvc.perform(post("/api/v1/cards").with(jwt())
                                 .contentType(MediaType.APPLICATION_JSON)

@@ -46,6 +46,16 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(com.hyperativa.javaEspecialista.domain.exception.DuplicateCardException.class)
+    public ProblemDetail handleDuplicateCard(
+            com.hyperativa.javaEspecialista.domain.exception.DuplicateCardException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        problem.setTitle("Card Already Registered");
+        problem.setType(URI.create("https://hyperativa.com.br/errors/duplicate-card"));
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgument(IllegalArgumentException e) {
         metricsService.incrementCardsValidationFailed();

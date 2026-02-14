@@ -1,6 +1,8 @@
 package com.hyperativa.javaEspecialista.domain.service;
 
+import com.hyperativa.javaEspecialista.domain.exception.DuplicateCardException;
 import com.hyperativa.javaEspecialista.domain.model.Card;
+import com.hyperativa.javaEspecialista.domain.ports.in.CardInputPort;
 import com.hyperativa.javaEspecialista.domain.ports.out.AuditPort;
 import com.hyperativa.javaEspecialista.domain.ports.out.CardRepositoryPort;
 import com.hyperativa.javaEspecialista.domain.ports.out.CryptoPort;
@@ -22,7 +24,7 @@ import java.util.UUID;
  * All operations are audited per PCI DSS Requirement 10.
  * </p>
  */
-public class CardService implements com.hyperativa.javaEspecialista.domain.ports.in.CardInputPort {
+public class CardService implements CardInputPort {
 
     private static final Logger log = LoggerFactory.getLogger(CardService.class);
 
@@ -47,9 +49,10 @@ public class CardService implements com.hyperativa.javaEspecialista.domain.ports
         Optional<UUID> existingUuid = cardRepository.findUuidByHash(cardHash);
 
         if (existingUuid.isPresent()) {
-            log.info("Card already exists with UUID: {}", existingUuid.get());
+            log.info("Card already exists with Token: {}", existingUuid.get());
             metricsService.incrementCardsAlreadyExists();
-            return existingUuid.get();
+            throw new DuplicateCardException(
+                    "Card already registered with Token: " + existingUuid.get());
         }
         log.debug("Card is new, proceeding with encryption and saving");
 

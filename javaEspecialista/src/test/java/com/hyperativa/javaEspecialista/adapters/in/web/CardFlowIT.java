@@ -127,12 +127,12 @@ class CardFlowIT {
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.token").value(cardToken));
 
-                // Step 5: Registering the same card returns the same token (idempotent)
+                // Step 5: Registering the same card returns 409 Conflict
                 mockMvc.perform(post("/api/v1/cards")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .header("Authorization", "Bearer " + token)
                                 .content(cardJson))
-                                .andExpect(status().isCreated())
-                                .andExpect(jsonPath("$.token").value(cardToken));
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.title").value("Card Already Registered"));
         }
 }
