@@ -35,6 +35,7 @@ class JwtTokenProviderTest {
     void setUp() {
         tokenProvider = new JwtTokenProvider(jwtEncoder);
         ReflectionTestUtils.setField(tokenProvider, "expirationSeconds", 3600);
+        ReflectionTestUtils.setField(tokenProvider, "tokenIssuer", "https://hyperativa.com");
     }
 
     @Test

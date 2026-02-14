@@ -232,7 +232,7 @@ class CardControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Invalid Request"))
+                .andExpect(jsonPath("$.title").value("Card Validation Error"))
                 .andExpect(jsonPath("$.detail").value("Luhn failed"));
     }
 
