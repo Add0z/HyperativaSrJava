@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.slf4j.Logger;
@@ -39,7 +40,7 @@ public class CardController {
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Register a new card", description = "Registers a card. If it exists, returns the existing UUID.")
-    @org.springframework.transaction.annotation.Transactional
+    @Transactional
     public ResponseEntity<CardResponse> registerCard(@Valid @RequestBody CardRequest request,
             java.security.Principal principal) {
         log.info("User {} registered a card: {}", principal.getName(), maskCardNumber(request.cardNumber()));
@@ -55,8 +56,8 @@ public class CardController {
         return ResponseEntity.ok(batchFileAdapter.processFile(file));
     }
 
-    @PostMapping("/search")
-    @Operation(summary = "Get card UUID (Secure)", description = "Retrieves the UUID of a registered card by its number via POST to avoid URL logging.")
+    @PostMapping("/lookup")
+    @Operation(summary = "Get card UUID (Secure Lookup)", description = "Retrieves the UUID of a registered card by its number via POST to avoid URL logging.")
     public ResponseEntity<CardResponse> getCardSecure(@Valid @RequestBody CardRequest request,
             java.security.Principal principal) {
         log.info("User {} requested to get card (secure) by number: {}", principal.getName(),

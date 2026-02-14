@@ -1,13 +1,18 @@
 package com.hyperativa.javaEspecialista.adapters.in.web.exception;
 
+import com.hyperativa.javaEspecialista.auth.domain.exception.AuthenticationException;
+import com.hyperativa.javaEspecialista.domain.exception.CardValidationException;
+import com.hyperativa.javaEspecialista.domain.exception.UsernameAlreadyExistsException;
 import com.hyperativa.javaEspecialista.domain.ports.out.MetricsPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.net.URI;
+import org.springframework.security.access.AccessDeniedException;
 import java.time.Instant;
 import java.util.Objects;
 
@@ -20,9 +25,9 @@ public class GlobalExceptionHandler {
         this.metricsService = metricsService;
     }
 
-    @ExceptionHandler(com.hyperativa.javaEspecialista.domain.exception.CardValidationException.class)
+    @ExceptionHandler(CardValidationException.class)
     public ProblemDetail handleCardValidation(
-            com.hyperativa.javaEspecialista.domain.exception.CardValidationException e) {
+            CardValidationException e) {
         metricsService.incrementCardsValidationFailed();
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
         problem.setTitle("Card Validation Error");
@@ -31,9 +36,9 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler(com.hyperativa.javaEspecialista.domain.exception.UsernameAlreadyExistsException.class)
+    @ExceptionHandler(UsernameAlreadyExistsException.class)
     public ProblemDetail handleUsernameExists(
-            com.hyperativa.javaEspecialista.domain.exception.UsernameAlreadyExistsException e) {
+            UsernameAlreadyExistsException e) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
         problem.setTitle("Username Already Exists");
         problem.setType(URI.create("https://hyperativa.com.br/errors/conflict"));
@@ -65,9 +70,8 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler(com.hyperativa.javaEspecialista.auth.domain.exception.AuthenticationException.class)
-    public ProblemDetail handleAuthenticationException(
-            com.hyperativa.javaEspecialista.auth.domain.exception.AuthenticationException e) {
+    @ExceptionHandler(AuthenticationException.class)
+    public ProblemDetail handleAuthenticationException(AuthenticationException e) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED,
                 "Invalid username or password");
         problem.setTitle("Unauthorized");
@@ -76,8 +80,8 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler(org.springframework.security.authentication.BadCredentialsException.class)
-    public ProblemDetail handleBadCredentials(org.springframework.security.authentication.BadCredentialsException e) {
+    @ExceptionHandler(BadCredentialsException.class)
+    public ProblemDetail handleBadCredentials(BadCredentialsException e) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED,
                 "Invalid username or password");
         problem.setTitle("Unauthorized");
@@ -93,6 +97,15 @@ public class GlobalExceptionHandler {
                 "An unexpected error occurred");
         problem.setTitle("Internal Server Error");
         problem.setType(Objects.requireNonNull(URI.create("https://hyperativa.com.br/errors/internal-server-error")));
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ProblemDetail handleAccessDenied(AccessDeniedException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Access Denied");
+        problem.setTitle("Forbidden");
+        problem.setType(URI.create("https://hyperativa.com.br/errors/forbidden"));
         problem.setProperty("timestamp", Instant.now());
         return problem;
     }
