@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-add-expires-at-column
+      author: hyperativa
+      changes:
+        - addColumn:
+            tableName: cards
+            columns:
+              - column:
+                  name: expires_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: true
+        - createIndex:
+            indexName: idx_cards_expires_at
+            tableName: cards
+            columns:
+              - column:
+                  name: expires_at
+      comment: "Data retention policy - expired rows cleaned up by scheduled task"
