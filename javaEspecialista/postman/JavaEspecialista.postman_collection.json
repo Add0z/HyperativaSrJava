@@ -80,6 +80,35 @@
                         }
                     },
                     "response": []
+                },
+                {
+                    "name": "Register Admin",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"username\": \"admin1\",\n    \"password\": \"StrongPass1!admin\",\n    \"roles\": [\"ADMIN\"]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/auth/register",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "register"
+                            ]
+                        }
+                    },
+                    "response": []
                 }
             ]
         },
@@ -125,7 +154,7 @@
                     "response": []
                 },
                 {
-                    "name": "Get Card (Secure Search)",
+                    "name": "Lookup Token by Card Number",
                     "request": {
                         "auth": {
                             "type": "bearer",
@@ -149,7 +178,7 @@
                             }
                         },
                         "url": {
-                            "raw": "{{base_url}}/api/v1/cards/search",
+                            "raw": "{{base_url}}/api/v1/cards/lookup",
                             "host": [
                                 "{{base_url}}"
                             ],
@@ -157,7 +186,7 @@
                                 "api",
                                 "v1",
                                 "cards",
-                                "search"
+                                "lookup"
                             ]
                         }
                     },
@@ -248,7 +277,7 @@
     "variable": [
         {
             "key": "base_url",
-            "value": "http://localhost:8080",
+            "value": "https://localhost:8080",
             "type": "string"
         }
     ]

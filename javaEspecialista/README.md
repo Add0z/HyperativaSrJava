@@ -85,6 +85,16 @@ curl -k -X POST https://localhost:8443/api/v1/auth/register \
 }
 ```
 
+### 1.1. Register an Admin User
+
+To register a user with administrative privileges (required for LGPD erasure), include the `roles` field:
+
+```bash
+curl -k -X POST https://localhost:8443/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin1", "password": "StrongPass1!admin", "roles": ["ADMIN"]}'
+```
+
 ### 2. Login and Get Token
 
 ```bash
