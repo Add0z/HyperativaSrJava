@@ -2,7 +2,7 @@ services:
   app:
     build: .
     ports:
-      - "8443:8443" # HTTPS
+      - "8443:8080" # HTTPS
       - "8080:8080" # HTTP (Redirect or Fallback)
     environment:
       - SPRING_PROFILES_ACTIVE=docker
@@ -71,3 +71,9 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - prometheus
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8081:8080

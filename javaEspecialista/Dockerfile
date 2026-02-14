@@ -21,7 +21,7 @@ RUN chown -R appuser:appgroup /app
 
 USER appuser
 
-EXPOSE 8443
+EXPOSE 8080
 
 # JVM tuning for containers
 ENTRYPOINT ["java", \
