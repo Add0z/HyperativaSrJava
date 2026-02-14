@@ -16,4 +16,12 @@ public interface CardRepositoryPort {
      * @return true if a card was deleted, false if not found.
      */
     boolean deleteByHash(byte[] cardHash);
+
+    /**
+     * Deletes all cards whose {@code expires_at} timestamp has passed.
+     * Used by the scheduled data retention cleanup task.
+     *
+     * @return the number of expired cards deleted.
+     */
+    int deleteExpiredCards();
 }

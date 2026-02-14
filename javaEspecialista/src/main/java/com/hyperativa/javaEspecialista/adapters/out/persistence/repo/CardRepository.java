@@ -17,4 +17,8 @@ public interface CardRepository extends CrudRepository<CardEntity, Long> {
     @org.springframework.data.jdbc.repository.query.Modifying
     @org.springframework.data.jdbc.repository.query.Query("DELETE FROM cards WHERE card_hash = :cardHash")
     int deleteByCardHash(byte[] cardHash);
+
+    @org.springframework.data.jdbc.repository.query.Modifying
+    @org.springframework.data.jdbc.repository.query.Query("DELETE FROM cards WHERE expires_at IS NOT NULL AND expires_at < NOW()")
+    int deleteExpired();
 }

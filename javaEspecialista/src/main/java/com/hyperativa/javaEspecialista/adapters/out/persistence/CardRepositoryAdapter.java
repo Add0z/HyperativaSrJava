@@ -144,4 +144,14 @@ public class CardRepositoryAdapter implements CardRepositoryPort {
         return false;
     }
 
+    @Override
+    public int deleteExpiredCards() {
+        log.debug("Deleting expired cards (data retention cleanup)");
+        int deleted = cardRepository.deleteExpired();
+        if (deleted > 0) {
+            log.info("Data retention cleanup: {} expired cards deleted", deleted);
+        }
+        return deleted;
+    }
+
 }
