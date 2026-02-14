@@ -14,8 +14,20 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Batch file adapter that processes card registrations using Java 25 virtual
+ * threads
+ * for maximum throughput. Each card registration is submitted to a virtual
+ * thread,
+ * enabling high concurrency without platform thread exhaustion.
+ */
 @Component
 public class BatchFileAdapter {
 
@@ -27,68 +39,92 @@ public class BatchFileAdapter {
     }
 
     public BatchResponse processFile(MultipartFile file) {
-        int total = 0;
-        int success = 0;
-        int failure = 0;
-        List<BatchError> errors = new ArrayList<>();
+        ParseResult parsed = parseFile(file);
+        List<CardLine> cardLines = parsed.cards;
+
+        int total = parsed.totalLines;
+        AtomicInteger success = new AtomicInteger(0);
+        AtomicInteger failure = new AtomicInteger(0);
+        List<BatchError> errors = Collections.synchronizedList(new ArrayList<>());
+
+        // Process with virtual threads for maximum concurrency
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<?>> futures = new ArrayList<>();
+
+            for (CardLine cardLine : cardLines) {
+                futures.add(executor.submit(() -> {
+                    try {
+                        if (cardLine.cardNumber().isEmpty()) {
+                            errors.add(new BatchError(cardLine.lineNumber(), "****", "Empty card number"));
+                            log.warn("Empty card number at line: {}", cardLine.lineNumber());
+                            failure.incrementAndGet();
+                            return;
+                        }
+                        cardInputPort.registerCard(cardLine.cardNumber());
+                        success.incrementAndGet();
+                    } catch (Exception e) {
+                        String maskedCard = maskCardNumber(cardLine.cardNumber());
+                        String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+                        errors.add(new BatchError(cardLine.lineNumber(), maskedCard, reason));
+                        log.error("Failed to process line: {} - Card: {} - Reason: {}",
+                                cardLine.lineNumber(), maskedCard, reason, e);
+                        failure.incrementAndGet();
+                    }
+                }));
+            }
+
+            // Wait for all tasks to complete
+            for (Future<?> future : futures) {
+                try {
+                    future.get();
+                } catch (Exception e) {
+                    log.error("Unexpected error waiting for virtual thread", e);
+                }
+            }
+        }
+
+        return new BatchResponse(total, success.get(), failure.get(), errors);
+    }
+
+    /**
+     * Parse the batch file and extract card numbers. This is done sequentially
+     * since file I/O is inherently sequential. The parsed cards are then
+     * processed in parallel via virtual threads.
+     */
+    private ParseResult parseFile(MultipartFile file) {
+        List<CardLine> cards = new ArrayList<>();
+        int lineNumber = 0;
 
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
 
             String line;
             while ((line = reader.readLine()) != null) {
-                total++;
+                lineNumber++;
+
                 // Skip Header
-                if (line.startsWith("DESAFIO")) {
+                if (line.startsWith("DESAFIO"))
                     continue;
-                }
                 // Skip Footer or empty lines
-                if (line.trim().isEmpty() || line.startsWith("LOTE") || line.length() < 26) {
+                if (line.trim().isEmpty() || line.startsWith("LOTE") || line.length() < 26)
                     continue;
-                }
 
                 try {
-                    // Extract Card Number: [08-26] (1-based) -> [7-26] (0-based exclusive)
-                    // The requirement says [08-26], consisting of 19 characters.
-                    // Java substring(beginIndex, endIndex)
-                    // beginIndex = 7 (8th char)
-                    // endIndex = 26 (27th char) => length 26-7 = 19.
                     String rawCardNumber = line.substring(7, 26).trim();
-
-                    if (rawCardNumber.isEmpty()) {
-                        failure++;
-                        errors.add(new BatchError(total, "****", "Empty card number"));
-                        log.warn("Empty card number at line: {}", total);
-                        continue;
-                    }
-
-                    // Register
-                    cardInputPort.registerCard(rawCardNumber);
-                    success++;
-
+                    cards.add(new CardLine(lineNumber, rawCardNumber));
                 } catch (Exception e) {
-                    String maskedCard = "****";
-                    try {
-                        String extracted = line.substring(7, 26).trim();
-                        maskedCard = maskCardNumber(extracted);
-                    } catch (Exception ignored) {
-                        // If we can't extract the card number, leave it masked
-                    }
-
-                    String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-                    errors.add(new BatchError(total, maskedCard, reason));
-                    log.error("Failed to process line: {} - Card: {} - Reason: {}", total, maskedCard, reason, e);
-                    failure++;
+                    cards.add(new CardLine(lineNumber, ""));
                 }
             }
-
         } catch (IOException e) {
             log.error("Error reading file", e);
             throw new com.hyperativa.javaEspecialista.domain.exception.FileProcessingException("Failed to process file",
                     e);
         }
 
-        return new BatchResponse(total, success, failure, errors);
+        log.info("Parsed {} card lines from batch file ({} total lines), processing with virtual threads",
+                cards.size(), lineNumber);
+        return new ParseResult(cards, lineNumber);
     }
 
     private String maskCardNumber(String cardNumber) {
@@ -96,5 +132,11 @@ public class BatchFileAdapter {
             return "****";
         }
         return "****" + cardNumber.substring(cardNumber.length() - 4);
+    }
+
+    private record CardLine(int lineNumber, String cardNumber) {
+    }
+
+    private record ParseResult(List<CardLine> cards, int totalLines) {
     }
 }
