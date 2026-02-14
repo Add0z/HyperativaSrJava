@@ -212,7 +212,7 @@ class CardControllerTest {
         CardRequest request = new CardRequest("1234567890123452");
         when(cardInputPort.findCardUuid(anyString())).thenReturn(Optional.of(uuid));
 
-        mockMvc.perform(post("/api/v1/cards/search")
+        mockMvc.perform(post("/api/v1/cards/lookup")
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -252,7 +252,7 @@ class CardControllerTest {
 
     @Test
     void getCard_WhenNotAuthenticated_ShouldReturnUnauthorized() throws Exception {
-        mockMvc.perform(post("/api/v1/cards/search")
+        mockMvc.perform(post("/api/v1/cards/lookup")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new CardRequest("1234567890123452"))))
                 .andExpect(status().isUnauthorized());

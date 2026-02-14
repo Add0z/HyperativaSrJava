@@ -34,105 +34,105 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 4. Look up the card token
  */
 @SpringBootTest(properties = {
-        "ENCRYPTION_KEY=12345678901234567890123456789012",
-        "HASH_KEY=12345678901234567890123456789012",
-        "JWT_PUBLIC_KEY=classpath:public.pem",
-        "JWT_PRIVATE_KEY=classpath:private.pem"
+                "ENCRYPTION_KEY=12345678901234567890123456789012",
+                "HASH_KEY=12345678901234567890123456789012",
+                "JWT_PUBLIC_KEY=classpath:public.pem",
+                "JWT_PRIVATE_KEY=classpath:private.pem"
 })
 @ActiveProfiles("test")
 @Testcontainers
 class CardFlowIT {
 
-    @Container
-    @ServiceConnection
-    @SuppressWarnings("resource")
-    static MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0");
+        @Container
+        @ServiceConnection
+        @SuppressWarnings("resource")
+        static MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0");
 
-    @Container
-    @ServiceConnection
-    @SuppressWarnings("resource")
-    static GenericContainer<?> redis = new GenericContainer<>("redis:7.0").withExposedPorts(6379);
+        @Container
+        @ServiceConnection
+        @SuppressWarnings("resource")
+        static GenericContainer<?> redis = new GenericContainer<>("redis:7.0").withExposedPorts(6379);
 
-    @DynamicPropertySource
-    static void redisProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.data.redis.host", redis::getHost);
-        registry.add("spring.data.redis.port", redis::getFirstMappedPort);
-    }
+        @DynamicPropertySource
+        static void redisProperties(DynamicPropertyRegistry registry) {
+                registry.add("spring.data.redis.host", redis::getHost);
+                registry.add("spring.data.redis.port", redis::getFirstMappedPort);
+        }
 
-    @Autowired
-    private WebApplicationContext context;
+        @Autowired
+        private WebApplicationContext context;
 
-    private MockMvc mockMvc;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+        private MockMvc mockMvc;
+        private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @BeforeEach
-    void setUp() {
-        mockMvc = MockMvcBuilders.webAppContextSetup(context)
-                .apply(springSecurity())
-                .build();
-    }
+        @BeforeEach
+        void setUp() {
+                mockMvc = MockMvcBuilders.webAppContextSetup(context)
+                                .apply(springSecurity())
+                                .build();
+        }
 
-    @Test
-    void fullFlow_RegisterUser_Login_RegisterCard_LookupCard() throws Exception {
-        // Step 1: Register user
-        String registerJson = """
-                {"username": "flowuser", "password": "FlowPass1!xy"}
-                """;
+        @Test
+        void fullFlow_RegisterUser_Login_RegisterCard_LookupCard() throws Exception {
+                // Step 1: Register user
+                String registerJson = """
+                                {"username": "flowuser", "password": "FlowPass1!xy"}
+                                """;
 
-        mockMvc.perform(post("/api/v1/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(registerJson))
-                .andExpect(status().isCreated());
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(registerJson))
+                                .andExpect(status().isCreated());
 
-        // Step 2: Login and get JWT token
-        String loginJson = """
-                {"username": "flowuser", "password": "FlowPass1!xy"}
-                """;
+                // Step 2: Login and get JWT token
+                String loginJson = """
+                                {"username": "flowuser", "password": "FlowPass1!xy"}
+                                """;
 
-        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(loginJson))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").isNotEmpty())
-                .andReturn();
+                MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(loginJson))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.token").isNotEmpty())
+                                .andReturn();
 
-        JsonNode loginResponse = objectMapper.readTree(loginResult.getResponse().getContentAsString());
-        String token = loginResponse.get("token").asText();
+                JsonNode loginResponse = objectMapper.readTree(loginResult.getResponse().getContentAsString());
+                String token = loginResponse.get("token").asText();
 
-        // Step 3: Register a card
-        String cardJson = """
-                {"cardNumber": "4539578763621486"}
-                """;
+                // Step 3: Register a card
+                String cardJson = """
+                                {"cardNumber": "4539578763621486"}
+                                """;
 
-        MvcResult cardResult = mockMvc.perform(post("/api/v1/cards")
-                .contentType(MediaType.APPLICATION_JSON)
-                .header("Authorization", "Bearer " + token)
-                .content(cardJson))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.token").isNotEmpty())
-                .andReturn();
+                MvcResult cardResult = mockMvc.perform(post("/api/v1/cards")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", "Bearer " + token)
+                                .content(cardJson))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.token").isNotEmpty())
+                                .andReturn();
 
-        JsonNode cardResponse = objectMapper.readTree(cardResult.getResponse().getContentAsString());
-        String cardToken = cardResponse.get("token").asText();
+                JsonNode cardResponse = objectMapper.readTree(cardResult.getResponse().getContentAsString());
+                String cardToken = cardResponse.get("token").asText();
 
-        // Step 4: Lookup the card
-        String lookupJson = """
-                {"cardNumber": "4539578763621486"}
-                """;
+                // Step 4: Lookup the card
+                String lookupJson = """
+                                {"cardNumber": "4539578763621486"}
+                                """;
 
-        mockMvc.perform(post("/api/v1/cards/search")
-                .contentType(MediaType.APPLICATION_JSON)
-                .header("Authorization", "Bearer " + token)
-                .content(lookupJson))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value(cardToken));
+                mockMvc.perform(post("/api/v1/cards/lookup")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", "Bearer " + token)
+                                .content(lookupJson))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.token").value(cardToken));
 
-        // Step 5: Registering the same card returns the same token (idempotent)
-        mockMvc.perform(post("/api/v1/cards")
-                .contentType(MediaType.APPLICATION_JSON)
-                .header("Authorization", "Bearer " + token)
-                .content(cardJson))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.token").value(cardToken));
-    }
+                // Step 5: Registering the same card returns the same token (idempotent)
+                mockMvc.perform(post("/api/v1/cards")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", "Bearer " + token)
+                                .content(cardJson))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.token").value(cardToken));
+        }
 }
