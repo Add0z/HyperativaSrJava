@@ -1,0 +1,12 @@
+.git
+.gitignore
+.mvn/repository
+target/
+*.md
+*.txt
+*.log
+.idea/
+.vscode/
+.gemini/
+postman/
+docs/
