@@ -17,15 +17,21 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class AuthDomainConfig {
 
+    @org.springframework.beans.factory.annotation.Value("${jwt.refresh-token.expiration-seconds:604800}") // 7 days
+    private long refreshTokenDurationSeconds;
+
     @Bean
     public AuthService authService(LoadUserPort loadUserPort,
             SaveUserPort saveUserPort,
+            com.hyperativa.javaEspecialista.auth.domain.port.out.SaveRefreshTokenPort saveRefreshTokenPort,
+            com.hyperativa.javaEspecialista.auth.domain.port.out.LoadRefreshTokenPort loadRefreshTokenPort,
             PasswordEncoderPort passwordEncoder,
             AuthService.TokenProvider tokenProvider,
             MetricsPort metricsPort,
             AuditPort auditPort,
             SecurityPort securityPort) {
-        return new AuthService(loadUserPort, saveUserPort, passwordEncoder, tokenProvider, metricsPort, auditPort,
-                securityPort);
+        return new AuthService(loadUserPort, saveUserPort, saveRefreshTokenPort, loadRefreshTokenPort, passwordEncoder,
+                tokenProvider, metricsPort, auditPort,
+                securityPort, refreshTokenDurationSeconds);
     }
 }
