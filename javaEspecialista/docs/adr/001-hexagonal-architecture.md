@@ -20,6 +20,9 @@ domain/
   ports/in/     → Input ports (CardInputPort, AuthInputPort)
   ports/out/    → Output ports (CardRepositoryPort, CryptoPort, AuditPort)
   service/      → Domain services (CardService, MetricsService)
+audit/          → Audit Domain & Adapters (Compliance)
+  domain/
+  adapters/
 adapters/
   in/web/       → REST controllers
   in/file/      → Batch file processing
