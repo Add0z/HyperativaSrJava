@@ -22,9 +22,13 @@ The goal is to build a high-security REST API for credit card tokenization, with
 - [🏗 Architecture Decision Records (ADR)](#-architecture-decision-records-adr)
   - [1. Hexagonal Architecture](#1-hexagonal-architecture-ports--adapters)
   - [2. AES-256-GCM + HMAC-SHA-256 Encryption](#2-aes-256-gcm--hmac-sha-256-encryption)
-  - [3. Redis Cache with TTL](#3-redis-cache-with-ttl)
-  - [4. Distributed Rate Limiting](#4-distributed-rate-limiting)
-  - [5. Circuit Breaker (Resilience4j)](#5-circuit-breaker-resilience4j)
+  - [3. HMAC-SHA-256 for Card Lookup](#3-hmac-sha-256-for-card-lookup)
+  - [4. Redis Cache with TTL](#4-redis-cache-with-ttl)
+  - [5. Distributed Rate Limiting](#5-distributed-rate-limiting)
+  - [6. Circuit Breaker (Resilience4j)](#6-circuit-breaker-resilience4j)
+  - [7. Audit Logging](#7-audit-logging-pci-dss--lgpd)
+  - [8. Liquibase](#8-liquibase-for-schema-versioning)
+  - [9. HTTPS + HTTP/2](#9-https--http2)
 - [🔑 Key Rotation](#-key-rotation)
 - [⚙️ Environment Variables](#️-environment-variables)
 - [🧪 Testing](#-testing)
@@ -76,14 +80,7 @@ curl -k -X POST https://localhost:8443/api/v1/auth/register \
   -d '{"username": "user1", "password": "StrongPass1!xy"}'
 ```
 
-**Example Response (201 Created)**:
-
-```json
-{
-  "id": 1,
-  "username": "user1"
-}
-```
+**Response**: `201 Created` (empty body)
 
 ### 1.1. Register an Admin User
 
@@ -177,16 +174,16 @@ curl -k -X POST https://localhost:8443/api/v1/cards/lookup \
 
 #### 3. Batch Upload (File)
 
-- **POST** `/api/v1/cards/upload`
+- **POST** `/api/v1/cards` (`Content-Type: multipart/form-data`)
 - **Auth**: JWT Bearer Token
-- **Description**: Receives a text file with multiple card numbers (positional format) and processes them in batch.
+- **Description**: Receives a text file with multiple card numbers (positional format) and processes them in batch. The same base path as single registration, differentiated by `Content-Type`.
 - **Status**: `200 OK`
 - **Example Call (cURL)**:
 
 ```bash
-curl -k -X POST https://localhost:8443/api/v1/cards/upload \
+curl -k -X POST https://localhost:8443/api/v1/cards \
   -H "Authorization: Bearer $TOKEN" \
-  -F "file=@postman/test-cards.txt"
+  -F "file=@postman/test-cards-batch.txt"
 ```
 
 **Example Response**:
@@ -259,6 +256,8 @@ curl -k https://localhost:8443/actuator/prometheus
 
 ## 🏗 Architecture Decision Records (ADR)
 
+Detailed ADR documents are available in [`docs/adr/`](file:///Users/andrepereira/workspace/HyperativaSrJava/javaEspecialista/docs/adr).
+
 ### 1. Hexagonal Architecture (Ports & Adapters)
 
 **Decision**: Isolate the domain from infrastructure.
@@ -271,13 +270,13 @@ src/main/java/com/hyperativa/javaEspecialista/
 │   ├── model/               # Card, value objects (immutable Records)
 │   ├── service/             # CardService
 │   ├── ports/in/            # CardInputPort
-│   ├── ports/out/           # CardRepositoryPort, CryptoPort, MetricsPort, AuditPort
+│   ├── ports/out/           # CardRepositoryPort, CryptoPort, MetricsPort, SecurityPort
 │   └── exception/           # Domain exceptions
 ├── auth/
 │   ├── domain/              # Auth Domain (User, Role, AuthService)
 │   └── adapters/            # Auth persistence (JpaUserRepository)
 ├── audit/                   # Audit Domain & Adapters (Compliance)
-│   ├── domain/              # Audit Port & Entity
+│   ├── domain/              # AuditPort & AuditLog entity
 │   └── adapters/            # Audit Persistence Adapter
 ├── adapters/in/web/         # REST controllers, exception handler
 ├── adapters/in/file/        # Batch file processing
@@ -293,7 +292,12 @@ src/main/java/com/hyperativa/javaEspecialista/
 **Motivation**: PCI DSS compliance requires that PANs are never stored in plaintext. The combination of AES-256-GCM (confidentiality + authentication) with HMAC-SHA-256 (deterministic lookup without exposing the PAN) provides the ideal balance.
 **Impact**: The PAN is never stored in plaintext; lookups are performed via hash, and decryption occurs only when strictly necessary.
 
-### 3. Redis Cache with TTL
+### 3. HMAC-SHA-256 for Card Lookup
+
+**Decision**: Compute a keyed HMAC-SHA-256 hash of each card number for deterministic lookup.
+**Motivation**: AES-GCM produces different ciphertext on each encryption (unique IVs), making direct search impossible. HMAC provides a deterministic, one-way, keyed hash that enables exact-match queries via database index while preventing rainbow table attacks.
+
+### 4. Redis Cache with TTL
 
 **Decision**: Distributed cache (Redis) for frequently looked-up card tokens.
 **Motivation**: Reduce latency of repeated MySQL queries and decrease database load.
@@ -303,36 +307,37 @@ src/main/java/com/hyperativa/javaEspecialista/
 - **Policies**:
   - Configurable TTL via `application.yml`.
   - Automatic invalidation on expiration.
+  - **Negative caching**: Cache misses are cached with shorter TTL to prevent repeated DB hits.
 - **Flow**: The adapter attempts to retrieve from Redis cache; on cache miss, it queries MySQL and populates the cache.
 
-### 4. Distributed Rate Limiting
+### 5. Distributed Rate Limiting
 
-**Decision**: Redis-based rate limiting for request control per IP/user.
+**Decision**: Redis-based rate limiting for request control per IP.
 **Motivation**: Protect the API against abuse and DDoS attacks, distributing control across multiple application instances.
 **Impact**: Requests exceeding the limit receive `429 Too Many Requests`.
 
-### 5. Circuit Breaker (Resilience4j)
+### 6. Circuit Breaker (Resilience4j)
 
-**Decision**: Circuit Breaker on the persistence adapter.
+**Decision**: Circuit Breaker + Retry on the persistence adapter.
 **Motivation**: Prevent failure cascading when MySQL or Redis are unavailable, releasing resources quickly and allowing graceful recovery.
 **Configuration**: Parameterized via `application.yml` with failure thresholds and half-open timeout.
 
-### 6. Audit Logging (PCI DSS & LGPD)
+### 7. Audit Logging (PCI DSS & LGPD)
 
 **Decision**: Synchronous audit logging for all sensitive operations.
-**Motivation**: Meet compliant requirements (PCI DSS Req 10) to track "who, what, and when". We chose **synchronous** logging to guarantee **non-repudiation** and consistency; if an action is confirmed to the user, the audit log is guaranteed to be saved.
+**Motivation**: Meet compliance requirements (PCI DSS Req 10) to track "who, what, and when". We chose **synchronous** logging to guarantee **non-repudiation** and consistency; if an action is confirmed to the user, the audit log is guaranteed to be saved.
 **Details**:
 
 - Captures **User ID** and **IP Address** for every action.
 - Covers Card operations (Register, Lookup, Delete) and Auth events (Login, Register).
 - Stores logs in specific `audit_logs` table.
 
-### 7. Liquibase for Schema Versioning
+### 8. Liquibase for Schema Versioning
 
 **Decision**: Use Liquibase to manage database migrations.
 **Motivation**: Ensure traceability, reproducibility, and safety across all schema changes, from development to production.
 
-### 7. HTTPS + HTTP/2
+### 9. HTTPS + HTTP/2
 
 **Decision**: API exposed exclusively over HTTPS with HTTP/2 enabled.
 **Motivation**: Security requirement for sensitive financial data. HTTP/2 provides stream multiplexing and header compression, improving performance.
@@ -400,4 +405,4 @@ The Postman collection and test files are available in the `postman/` folder.
 2. Set the `baseUrl` environment variable to `https://localhost:8443`.
 3. Run the **Register** request followed by **Login** to obtain a token.
 4. The token will be automatically used in all subsequent requests.
-5. For batch upload, use the file `postman/test-cards.txt`.
+5. For batch upload, use the file `postman/test-cards-batch.txt`.
