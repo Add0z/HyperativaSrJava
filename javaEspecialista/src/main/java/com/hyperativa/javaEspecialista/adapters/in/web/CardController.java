@@ -19,6 +19,7 @@ import com.hyperativa.javaEspecialista.adapters.in.web.dto.CardRequest;
 import com.hyperativa.javaEspecialista.adapters.in.web.dto.CardResponse;
 import com.hyperativa.javaEspecialista.domain.ports.in.CardInputPort;
 
+import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -42,7 +43,7 @@ public class CardController {
     @Operation(summary = "Register a new card", description = "Registers a card. If it exists, returns the existing UUID.")
     @Transactional
     public ResponseEntity<CardResponse> registerCard(@Valid @RequestBody CardRequest request,
-            java.security.Principal principal) {
+            Principal principal) {
         log.info("User {} registered a card: {}", principal.getName(), maskCardNumber(request.cardNumber()));
         UUID uuid = cardInputPort.registerCard(request.cardNumber());
         return ResponseEntity.status(HttpStatus.CREATED).body(new CardResponse(uuid));
@@ -51,7 +52,7 @@ public class CardController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Upload batch file", description = "Uploads a TXT file containing card records for batch registration.")
     public ResponseEntity<BatchResponse> uploadFile(
-            @RequestParam("file") MultipartFile file, java.security.Principal principal) {
+            @RequestParam("file") MultipartFile file, Principal principal) {
         log.info("User {} requested to upload file: {}", principal.getName(), file.getOriginalFilename());
         return ResponseEntity.ok(batchFileAdapter.processFile(file));
     }
@@ -59,7 +60,7 @@ public class CardController {
     @PostMapping("/lookup")
     @Operation(summary = "Get card UUID (Secure Lookup)", description = "Retrieves the UUID of a registered card by its number via POST to avoid URL logging.")
     public ResponseEntity<CardResponse> getCardSecure(@Valid @RequestBody CardRequest request,
-            java.security.Principal principal) {
+            Principal principal) {
         log.info("User {} requested to get card (secure) by number: {}", principal.getName(),
                 maskCardNumber(request.cardNumber()));
         return cardInputPort.findCardUuid(request.cardNumber())
@@ -71,7 +72,7 @@ public class CardController {
     @PreAuthorize("hasAuthority('SCOPE_ADMIN')")
     @Operation(summary = "Delete card (LGPD)", description = "Permanently erases card data per LGPD Art. 18 (right to erasure). Card number sent via body for security.")
     public ResponseEntity<Void> deleteCard(@Valid @RequestBody CardRequest request,
-            java.security.Principal principal) {
+            Principal principal) {
         log.info("User {} requested card deletion (LGPD Art. 18): {}",
                 principal.getName(), maskCardNumber(request.cardNumber()));
         boolean deleted = cardInputPort.deleteCard(request.cardNumber());
