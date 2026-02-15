@@ -3,10 +3,11 @@ package com.hyperativa.javaEspecialista.domain.service;
 import com.hyperativa.javaEspecialista.domain.exception.DuplicateCardException;
 import com.hyperativa.javaEspecialista.domain.model.Card;
 import com.hyperativa.javaEspecialista.domain.ports.in.CardInputPort;
-import com.hyperativa.javaEspecialista.domain.ports.out.AuditPort;
+import com.hyperativa.javaEspecialista.audit.domain.port.out.AuditPort;
 import com.hyperativa.javaEspecialista.domain.ports.out.CardRepositoryPort;
 import com.hyperativa.javaEspecialista.domain.ports.out.CryptoPort;
 import com.hyperativa.javaEspecialista.domain.ports.out.MetricsPort;
+import com.hyperativa.javaEspecialista.domain.ports.out.SecurityPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,13 +33,15 @@ public class CardService implements CardInputPort {
     private final CryptoPort cryptoPort;
     private final MetricsPort metricsService;
     private final AuditPort auditPort;
+    private final SecurityPort securityPort;
 
     public CardService(CardRepositoryPort cardRepository, CryptoPort cryptoPort,
-            MetricsPort metricsService, AuditPort auditPort) {
+            MetricsPort metricsService, AuditPort auditPort, SecurityPort securityPort) {
         this.cardRepository = cardRepository;
         this.cryptoPort = cryptoPort;
         this.metricsService = metricsService;
         this.auditPort = auditPort;
+        this.securityPort = securityPort;
     }
 
     public UUID registerCard(String cardNumber) {
@@ -75,7 +78,9 @@ public class CardService implements CardInputPort {
 
         cardRepository.save(newCard);
         metricsService.incrementCardsCreated();
-        auditPort.log("system", "CARD_REGISTERED", newCard.getUuid().toString(), null, "SUCCESS", null);
+        auditPort.log(securityPort.getCurrentUser(), "CARD_REGISTERED", newCard.getUuid().toString(),
+                securityPort.getCurrentIp(), "SUCCESS",
+                null);
         log.info("New card tokenized successfully with token: {}", newCard.getUuid());
         return newCard.getUuid();
     }
@@ -86,10 +91,12 @@ public class CardService implements CardInputPort {
         Optional<UUID> result = cardRepository.findUuidByHash(cardHash);
         if (result.isPresent()) {
             log.debug("Card found via hash lookup, token: {}", result.get());
-            auditPort.log("system", "CARD_LOOKUP", result.get().toString(), null, "SUCCESS", null);
+            auditPort.log(securityPort.getCurrentUser(), "CARD_LOOKUP", result.get().toString(),
+                    securityPort.getCurrentIp(), "SUCCESS", null);
         } else {
             log.debug("Card not found via hash lookup");
-            auditPort.log("system", "CARD_LOOKUP", null, null, "NOT_FOUND", null);
+            auditPort.log(securityPort.getCurrentUser(), "CARD_LOOKUP", null, securityPort.getCurrentIp(), "NOT_FOUND",
+                    null);
         }
         metricsService.recordCardLookup(result.isPresent());
         return result;
@@ -101,10 +108,12 @@ public class CardService implements CardInputPort {
         byte[] cardHash = cryptoPort.hash(cardNumber);
         boolean deleted = cardRepository.deleteByHash(cardHash);
         if (deleted) {
-            auditPort.log("system", "CARD_DELETED", null, null, "SUCCESS", "LGPD erasure request");
+            auditPort.log(securityPort.getCurrentUser(), "CARD_DELETED", null, securityPort.getCurrentIp(), "SUCCESS",
+                    "LGPD erasure request");
             log.info("Card data erased per LGPD Art. 18 request");
         } else {
-            auditPort.log("system", "CARD_DELETED", null, null, "NOT_FOUND", "LGPD erasure request - card not found");
+            auditPort.log(securityPort.getCurrentUser(), "CARD_DELETED", null, securityPort.getCurrentIp(), "NOT_FOUND",
+                    "LGPD erasure request - card not found");
             log.debug("Card not found for deletion");
         }
         return deleted;
