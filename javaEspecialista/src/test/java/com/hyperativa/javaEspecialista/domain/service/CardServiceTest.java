@@ -139,4 +139,36 @@ class CardServiceTest {
         verify(metricsService).recordCardLookup(false);
         verify(auditPort).log(eq(USER), eq("CARD_LOOKUP"), any(), eq(IP), eq("NOT_FOUND"), any());
     }
+
+    @Test
+    void deleteCard_WhenCardExists_ShouldReturnTrue() {
+        // Arrange
+        when(cryptoPort.hash(VALID_CARD_NUMBER)).thenReturn(HASH);
+        when(cardRepository.deleteByHash(HASH)).thenReturn(true);
+        when(securityPort.getCurrentUser()).thenReturn(USER);
+        when(securityPort.getCurrentIp()).thenReturn(IP);
+
+        // Act
+        boolean result = cardService.deleteCard(VALID_CARD_NUMBER);
+
+        // Assert
+        assertTrue(result);
+        verify(auditPort).log(eq(USER), eq("CARD_DELETED"), any(), eq(IP), eq("SUCCESS"), any());
+    }
+
+    @Test
+    void deleteCard_WhenCardDoesNotExist_ShouldReturnFalse() {
+        // Arrange
+        when(cryptoPort.hash(VALID_CARD_NUMBER)).thenReturn(HASH);
+        when(cardRepository.deleteByHash(HASH)).thenReturn(false);
+        when(securityPort.getCurrentUser()).thenReturn(USER);
+        when(securityPort.getCurrentIp()).thenReturn(IP);
+
+        // Act
+        boolean result = cardService.deleteCard(VALID_CARD_NUMBER);
+
+        // Assert
+        assertFalse(result);
+        verify(auditPort).log(eq(USER), eq("CARD_DELETED"), any(), eq(IP), eq("NOT_FOUND"), any());
+    }
 }
