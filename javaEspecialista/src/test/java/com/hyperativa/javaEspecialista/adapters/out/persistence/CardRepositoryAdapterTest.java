@@ -54,7 +54,7 @@ class CardRepositoryAdapterTest {
 
     @BeforeEach
     void setUp() {
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        org.mockito.Mockito.lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         adapter = new CardRepositoryAdapter(
                 cardRepository,
                 redisTemplate,
@@ -150,5 +150,29 @@ class CardRepositoryAdapterTest {
         assertTrue(result.isEmpty());
         verify(metricsService).incrementCacheMiss();
         verify(valueOperations).set(eq(CACHE_KEY), eq("NOT_FOUND"), any(Duration.class));
+    }
+
+    @Test
+    void deleteByHash_WhenDeletedFromDb_ShouldInvalidateCacheAndReturnTrue() {
+        when(cardRepository.deleteByCardHash(HASH)).thenReturn(1);
+
+        boolean result = adapter.deleteByHash(HASH);
+
+        assertTrue(result);
+        verify(cardRepository).deleteByCardHash(HASH);
+        verify(redisTemplate).delete(CACHE_KEY);
+    }
+
+    @Test
+    void deleteByHash_WhenDeletedFromDbButCacheInvalidationFails_ShouldLogAndReturnTrue() {
+        when(cardRepository.deleteByCardHash(HASH)).thenReturn(1);
+        when(redisTemplate.delete(CACHE_KEY)).thenThrow(new RuntimeException("Redis down"));
+
+        boolean result = adapter.deleteByHash(HASH);
+
+        assertTrue(result);
+        verify(cardRepository).deleteByCardHash(HASH);
+        verify(redisTemplate).delete(CACHE_KEY);
+        // Exception is logged but not rethrown
     }
 }
