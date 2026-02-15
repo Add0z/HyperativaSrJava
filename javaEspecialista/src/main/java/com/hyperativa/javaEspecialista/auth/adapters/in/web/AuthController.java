@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.hyperativa.javaEspecialista.auth.domain.model.Role;
+import com.hyperativa.javaEspecialista.auth.domain.model.TokenPair;
 import com.hyperativa.javaEspecialista.auth.domain.port.in.AuthInputPort;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,12 +38,24 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    @Operation(summary = "Authenticate user", description = "Authenticates a user and returns a JWT Bearer token.")
+    @Operation(summary = "Authenticate user", description = "Authenticates a user and returns a JWT Bearer token pair.")
     public ResponseEntity<AuthResponse> login(@RequestBody @Valid AuthRequest request) {
         log.info("Login attempt for user: {}", request.username());
-        String token = authService.login(request.username(), request.password());
+        TokenPair tokenPair = authService.login(request.username(),
+                request.password());
         log.info("Login successful for user: {}", request.username());
-        return ResponseEntity.ok(new AuthResponse(token));
+        return ResponseEntity.ok(new AuthResponse(tokenPair.accessToken(), tokenPair.refreshToken(),
+                tokenPair.tokenType(), tokenPair.expiresIn()));
+    }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "Refresh token", description = "Rotates the refresh token and issues a new access token.")
+    public ResponseEntity<AuthResponse> refresh(@RequestBody @Valid RefreshTokenRequest request) {
+        log.debug("Refresh token request");
+        TokenPair tokenPair = authService
+                .refreshToken(request.refreshToken());
+        return ResponseEntity.ok(new AuthResponse(tokenPair.accessToken(), tokenPair.refreshToken(),
+                tokenPair.tokenType(), tokenPair.expiresIn()));
     }
 
     @PostMapping("/register")
@@ -56,10 +69,6 @@ public class AuthController {
                     roles.add(Role.valueOf(roleName.toUpperCase()));
                 } catch (IllegalArgumentException e) {
                     log.warn("Invalid role provided: {}", roleName);
-                    // Optionally throw exception or ignore invalid roles.
-                    // For now, let's ignore or maybe better to throw validation error?
-                    // The prompt asks for "not admin user" handling, implying we want to create
-                    // admin.
                 }
             }
         }
@@ -72,12 +81,15 @@ public class AuthController {
     public record AuthRequest(@NotBlank String username, @NotBlank String password) {
     }
 
+    public record RefreshTokenRequest(@NotBlank String refreshToken) {
+    }
+
     public record RegisterRequest(
             @NotBlank String username,
             @NotBlank @Size(min = 12, message = "Password must be at least 12 characters") @Pattern(regexp = ".*[a-z].*", message = "Password must contain at least one lowercase letter") @Pattern(regexp = ".*[A-Z].*", message = "Password must contain at least one uppercase letter") @Pattern(regexp = ".*\\d.*", message = "Password must contain at least one digit") @Pattern(regexp = ".*[@$!%*?&].*", message = "Password must contain at least one special character (@$!%*?&)") String password,
             Set<String> roles) {
     }
 
-    public record AuthResponse(String token) {
+    public record AuthResponse(String accessToken, String refreshToken, String tokenType, long expiresIn) {
     }
 }
