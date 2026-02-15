@@ -45,9 +45,10 @@ class JwtTokenProviderTest {
         when(jwt.getTokenValue()).thenReturn("test-token");
         when(jwtEncoder.encode(any(JwtEncoderParameters.class))).thenReturn(jwt);
 
-        String token = tokenProvider.generateToken(user);
+        com.hyperativa.javaEspecialista.auth.domain.service.AuthService.AccessToken accessToken = tokenProvider
+                .generateAccessToken(user);
 
-        assertEquals("test-token", token);
+        assertEquals("test-token", accessToken.token());
 
         ArgumentCaptor<JwtEncoderParameters> captor = ArgumentCaptor.forClass(JwtEncoderParameters.class);
         verify(jwtEncoder).encode(captor.capture());

@@ -3,110 +3,65 @@ package com.hyperativa.javaEspecialista.auth.adapters.in.web;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import com.hyperativa.javaEspecialista.audit.adapters.out.persistence.repository.AuditLogRepository;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.context.WebApplicationContext;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hyperativa.javaEspecialista.adapters.in.web.exception.GlobalExceptionHandler;
 import com.hyperativa.javaEspecialista.auth.domain.port.in.AuthInputPort;
 import com.hyperativa.javaEspecialista.domain.ports.out.MetricsPort;
 
-@SpringBootTest(properties = {
-        "JWT_PUBLIC_KEY=classpath:public.pem",
-        "JWT_PRIVATE_KEY=classpath:private.pem",
-        "spring.liquibase.enabled=false",
-        "ENCRYPTION_KEY=12345678901234567890123456789012",
-        "HASH_KEY=12345678901234567890123456789012",
-        "spring.data.redis.repositories.enabled=false",
-        "management.health.redis.enabled=false",
-        "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,org.springframework.boot.autoconfigure.data.jdbc.JdbcRepositoriesAutoConfiguration,org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,org.springframework.boot.actuate.autoconfigure.data.redis.RedisReactiveHealthContributorAutoConfiguration,org.springframework.boot.data.redis.autoconfigure.health.DataRedisReactiveHealthContributorAutoConfiguration,org.springframework.boot.autoconfigure.data.jdbc.DataJdbcRepositoriesAutoConfiguration,org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration"
-})
-@ActiveProfiles("test")
-@Import({ GlobalExceptionHandler.class })
+@ExtendWith(MockitoExtension.class)
 class AuthControllerTest {
-
-    @Autowired
-    private WebApplicationContext context;
 
     private MockMvc mockMvc;
 
-    @MockitoBean
+    @Mock
     private AuthInputPort authService;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @MockitoBean
+    @Mock
     private MetricsPort metricsService;
 
-    @MockitoBean
-    private RedisConnectionFactory redisConnectionFactory;
-
-    @MockitoBean
-    private StringRedisTemplate redisTemplate;
-
-    @MockitoBean
-    private ValueOperations<String, String> valueOperations;
-
-    @MockitoBean
-    private com.hyperativa.javaEspecialista.adapters.out.persistence.repo.CardRepository cardRepository;
-
-    @MockitoBean
-    private com.hyperativa.javaEspecialista.auth.adapters.out.persistence.repo.UserRepository userRepository;
-
-    @MockitoBean
-    private AuditLogRepository auditLogRepository;
-
-    @MockitoBean
-    private org.springframework.data.jdbc.core.JdbcAggregateOperations jdbcAggregateOperations;
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.webAppContextSetup(context)
-                .apply(springSecurity())
+        AuthController authController = new AuthController(authService);
+        mockMvc = MockMvcBuilders.standaloneSetup(authController)
+                .setControllerAdvice(new GlobalExceptionHandler(metricsService))
                 .build();
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     }
 
     @Test
-    @WithMockUser
     void login_ShouldReturnToken() throws Exception {
         AuthController.AuthRequest request = new AuthController.AuthRequest("user", "pass");
-        when(authService.login(anyString(), anyString())).thenReturn("test-token");
+        com.hyperativa.javaEspecialista.auth.domain.model.TokenPair tokenPair = new com.hyperativa.javaEspecialista.auth.domain.model.TokenPair(
+                "test-access", "test-refresh", "Bearer", 3600);
+
+        when(authService.login(anyString(), anyString())).thenReturn(tokenPair);
 
         mockMvc.perform(post("/api/v1/auth/login")
-                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value("test-token"));
+                .andExpect(jsonPath("$.accessToken").value("test-access"))
+                .andExpect(jsonPath("$.refreshToken").value("test-refresh"));
     }
 
     @Test
-    @WithMockUser
     void login_WhenInvalid_ShouldReturnUnauthorized() throws Exception {
         AuthController.AuthRequest request = new AuthController.AuthRequest("user", "pass");
         when(authService.login(anyString(), anyString()))
@@ -114,14 +69,12 @@ class AuthControllerTest {
                         new com.hyperativa.javaEspecialista.auth.domain.exception.AuthenticationException("Invalid"));
 
         mockMvc.perform(post("/api/v1/auth/login")
-                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    @WithMockUser
     void register_ShouldReturnOk() throws Exception {
         Set<String> roles = new HashSet<>();
         roles.add("ADMIN");
@@ -129,14 +82,12 @@ class AuthControllerTest {
         doNothing().when(authService).register(anyString(), anyString(), org.mockito.ArgumentMatchers.any());
 
         mockMvc.perform(post("/api/v1/auth/register")
-                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
     }
 
     @Test
-    @WithMockUser
     void register_WithInvalidRole_ShouldIgnoreAndReturnOk() throws Exception {
         Set<String> roles = new HashSet<>();
         roles.add("INVALID_ROLE");
@@ -144,20 +95,17 @@ class AuthControllerTest {
         doNothing().when(authService).register(anyString(), anyString(), org.mockito.ArgumentMatchers.any());
 
         mockMvc.perform(post("/api/v1/auth/register")
-                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
     }
 
     @Test
-    @WithMockUser
     void register_WithNullRoles_ShouldReturnOk() throws Exception {
         AuthController.RegisterRequest request = new AuthController.RegisterRequest("user", "StrongPass1!", null);
         doNothing().when(authService).register(anyString(), anyString(), org.mockito.ArgumentMatchers.any());
 
         mockMvc.perform(post("/api/v1/auth/register")
-                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
@@ -165,8 +113,9 @@ class AuthControllerTest {
 
     @Test
     void authResponse_ShouldHaveToken() {
-        AuthController.AuthResponse response = new AuthController.AuthResponse("token");
-        assertEquals("token", response.token());
+        AuthController.AuthResponse response = new AuthController.AuthResponse("acc", "ref", "Bearer", 3600);
+        assertEquals("acc", response.accessToken());
+        assertEquals("ref", response.refreshToken());
     }
 
     @Test
@@ -174,68 +123,6 @@ class AuthControllerTest {
         AuthController.AuthRequest request = new AuthController.AuthRequest("u", "p");
         assertEquals("u", request.username());
         assertEquals("p", request.password());
-    }
-
-    @org.springframework.boot.test.context.TestConfiguration
-    static class TestConfig {
-        @org.springframework.context.annotation.Bean
-        public com.fasterxml.jackson.databind.ObjectMapper objectMapper() {
-            return new com.fasterxml.jackson.databind.ObjectMapper();
-        }
-
-        @org.springframework.context.annotation.Bean
-        @org.springframework.context.annotation.Primary
-        public javax.sql.DataSource dataSource() {
-            return new javax.sql.DataSource() {
-                @Override
-                public java.sql.Connection getConnection() throws java.sql.SQLException {
-                    java.sql.Connection connection = org.mockito.Mockito.mock(java.sql.Connection.class);
-                    java.sql.DatabaseMetaData metaData = org.mockito.Mockito.mock(java.sql.DatabaseMetaData.class);
-                    org.mockito.Mockito.when(connection.getMetaData()).thenReturn(metaData);
-                    org.mockito.Mockito.when(metaData.getDatabaseProductName()).thenReturn("MySQL");
-                    return connection;
-                }
-
-                @Override
-                public java.sql.Connection getConnection(String username, String password)
-                        throws java.sql.SQLException {
-                    return getConnection();
-                }
-
-                @Override
-                public java.io.PrintWriter getLogWriter() {
-                    return null;
-                }
-
-                @Override
-                public void setLogWriter(java.io.PrintWriter out) {
-                }
-
-                @Override
-                public void setLoginTimeout(int seconds) {
-                }
-
-                @Override
-                public int getLoginTimeout() {
-                    return 0;
-                }
-
-                @Override
-                public java.util.logging.Logger getParentLogger() {
-                    return java.util.logging.Logger.getLogger(java.util.logging.Logger.GLOBAL_LOGGER_NAME);
-                }
-
-                @Override
-                public <T> T unwrap(Class<T> iface) {
-                    return null;
-                }
-
-                @Override
-                public boolean isWrapperFor(Class<?> iface) {
-                    return false;
-                }
-            };
-        }
     }
 
     private void assertEquals(Object expected, Object actual) {
