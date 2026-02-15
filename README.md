@@ -29,6 +29,7 @@ The goal is to build a high-security REST API for credit card tokenization, with
   - [7. Audit Logging](#7-audit-logging-pci-dss--lgpd)
   - [8. Liquibase](#8-liquibase-for-schema-versioning)
   - [9. HTTPS + HTTP/2](#9-https--http2)
+  - [10. Refresh Token Rotation](#10-refresh-token-rotation)
 - [🔑 Key Rotation](#-key-rotation)
 - [⚙️ Environment Variables](#️-environment-variables)
 - [🧪 Testing](#-testing)
@@ -97,16 +98,31 @@ curl -k -X POST https://localhost:8443/api/v1/auth/register \
 ```bash
 TOKEN=$(curl -sk -X POST https://localhost:8443/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username": "user1", "password": "StrongPass1!xy"}' | jq -r '.token')
+  -d '{"username": "user1", "password": "StrongPass1!xy"}' | jq -r '.accessToken')
 ```
 
 **Example Response (200 OK)**:
 
 ```json
 {
-  "token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "accessToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "d8e9f0a1-b2c3-4d5e-6f78-901234567890",
+  "tokenType": "Bearer",
+  "expiresIn": 900
 }
 ```
+
+### 2.1. Refresh Token (Rotation)
+
+To obtain a new access token when the current one expires, use the `/refresh` endpoint. This will invalidate the old refresh token and issue a new pair (Rotation).
+
+```bash
+curl -k -X POST https://localhost:8443/api/v1/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken": "d8e9f0a1-b2c3-4d5e-6f78-901234567890"}'
+```
+
+**Response**: New `accessToken` and new `refreshToken`.
 
 ### 3. Use the Token
 
@@ -342,6 +358,11 @@ src/main/java/com/hyperativa/javaEspecialista/
 **Decision**: API exposed exclusively over HTTPS with HTTP/2 enabled.
 **Motivation**: Security requirement for sensitive financial data. HTTP/2 provides stream multiplexing and header compression, improving performance.
 **Fallback**: HTTP/1.1 only as a fallback for incompatible clients.
+
+### 10. Refresh Token Rotation
+
+**Decision**: Implement Refresh Token Rotation.
+**Motivation**: Mitigate risks of long-lived access tokens. Short-lived access tokens (15 min) reduce the attack window, while rotating refresh tokens (7 days) allows secure, long-term sessions with immediate revocation capabilities and breach detection (reuse detection).
 
 ## 🔑 Key Rotation
 
