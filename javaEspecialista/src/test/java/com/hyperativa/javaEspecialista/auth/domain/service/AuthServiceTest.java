@@ -2,7 +2,9 @@ package com.hyperativa.javaEspecialista.auth.domain.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -22,7 +24,9 @@ import com.hyperativa.javaEspecialista.auth.domain.model.User;
 import com.hyperativa.javaEspecialista.auth.domain.port.out.LoadUserPort;
 import com.hyperativa.javaEspecialista.auth.domain.port.out.PasswordEncoderPort;
 import com.hyperativa.javaEspecialista.auth.domain.port.out.SaveUserPort;
+import com.hyperativa.javaEspecialista.audit.domain.port.out.AuditPort;
 import com.hyperativa.javaEspecialista.domain.ports.out.MetricsPort;
+import com.hyperativa.javaEspecialista.domain.ports.out.SecurityPort;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -42,6 +46,12 @@ class AuthServiceTest {
     @Mock
     private MetricsPort metricsService;
 
+    @Mock
+    private AuditPort auditPort;
+
+    @Mock
+    private SecurityPort securityPort;
+
     @InjectMocks
     private AuthService authService;
 
@@ -52,6 +62,7 @@ class AuthServiceTest {
         when(loadUserPort.loadUserByUsername("user")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("pass", "encodedPass")).thenReturn(true);
         when(tokenProvider.generateToken(user)).thenReturn("token");
+        when(securityPort.getCurrentIp()).thenReturn("127.0.0.1");
 
         // Act
         String result = authService.login("user", "pass");
@@ -60,16 +71,22 @@ class AuthServiceTest {
         assertEquals("token", result);
         verify(tokenProvider).generateToken(user);
         verify(metricsService).incrementLoginSuccess();
+        verify(auditPort).log(eq("user"), eq("LOGIN_ATTEMPT"), any(), eq("127.0.0.1"), eq("PENDING"), any());
+        verify(auditPort).log(eq("user"), eq("LOGIN_SUCCESS"), any(), eq("127.0.0.1"), eq("SUCCESS"), any());
     }
 
     @Test
     void login_WhenUserNotFound_ShouldThrowAuthenticationException() {
         // Arrange
         when(loadUserPort.loadUserByUsername("user")).thenReturn(Optional.empty());
+        when(securityPort.getCurrentIp()).thenReturn("127.0.0.1");
 
         // Act & Assert
         assertThrows(AuthenticationException.class, () -> authService.login("user", "pass"));
         verify(metricsService).incrementLoginFailure("user_not_found");
+        verify(auditPort).log(eq("user"), eq("LOGIN_ATTEMPT"), any(), eq("127.0.0.1"), eq("PENDING"), any());
+        verify(auditPort).log(eq("user"), eq("LOGIN_FAILURE"), any(), eq("127.0.0.1"), eq("FAILURE"),
+                eq("User not found"));
     }
 
     @Test
@@ -78,10 +95,14 @@ class AuthServiceTest {
         User user = new User(UUID.randomUUID(), "user", "encodedPass", Set.of(Role.ADMIN));
         when(loadUserPort.loadUserByUsername("user")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrong", "encodedPass")).thenReturn(false);
+        when(securityPort.getCurrentIp()).thenReturn("127.0.0.1");
 
         // Act & Assert
         assertThrows(AuthenticationException.class, () -> authService.login("user", "wrong"));
         verify(metricsService).incrementLoginFailure("bad_credentials");
+        verify(auditPort).log(eq("user"), eq("LOGIN_ATTEMPT"), any(), eq("127.0.0.1"), eq("PENDING"), any());
+        verify(auditPort).log(eq("user"), eq("LOGIN_FAILURE"), any(), eq("127.0.0.1"), eq("FAILURE"),
+                eq("Bad credentials"));
     }
 
     @Test
@@ -89,6 +110,7 @@ class AuthServiceTest {
         // Arrange
         when(loadUserPort.loadUserByUsername("newuser")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("pass")).thenReturn("encodedPass");
+        when(securityPort.getCurrentIp()).thenReturn("127.0.0.1");
 
         // Act
         authService.register("newuser", "pass", null);
@@ -96,6 +118,8 @@ class AuthServiceTest {
         // Assert
         verify(saveUserPort).save(argThat(u -> u.roles().contains(Role.USER)));
         verify(metricsService).incrementUserRegistered("[USER]");
+        verify(auditPort).log(eq("newuser"), eq("REGISTER_ATTEMPT"), any(), eq("127.0.0.1"), eq("PENDING"), any());
+        verify(auditPort).log(eq("newuser"), eq("REGISTER_SUCCESS"), any(), eq("127.0.0.1"), eq("SUCCESS"), any());
     }
 
     @Test
@@ -103,10 +127,14 @@ class AuthServiceTest {
         // Arrange
         User user = new User(UUID.randomUUID(), "user", "pass", Set.of(Role.ADMIN));
         when(loadUserPort.loadUserByUsername("user")).thenReturn(Optional.of(user));
+        when(securityPort.getCurrentIp()).thenReturn("127.0.0.1");
 
         // Act & Assert
         assertThrows(com.hyperativa.javaEspecialista.domain.exception.UsernameAlreadyExistsException.class,
                 () -> authService.register("user", "pass", null));
         verify(metricsService).incrementUserRegistrationFailure("username_exists");
+        verify(auditPort).log(eq("user"), eq("REGISTER_ATTEMPT"), any(), eq("127.0.0.1"), eq("PENDING"), any());
+        verify(auditPort).log(eq("user"), eq("REGISTER_FAILURE"), any(), eq("127.0.0.1"), eq("FAILURE"),
+                eq("Username already exists"));
     }
 }

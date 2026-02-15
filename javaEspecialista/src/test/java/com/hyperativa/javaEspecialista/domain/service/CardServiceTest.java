@@ -24,10 +24,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.hyperativa.javaEspecialista.domain.model.Card;
-import com.hyperativa.javaEspecialista.domain.ports.out.AuditPort;
+import com.hyperativa.javaEspecialista.audit.domain.port.out.AuditPort;
 import com.hyperativa.javaEspecialista.domain.ports.out.CardRepositoryPort;
 import com.hyperativa.javaEspecialista.domain.ports.out.CryptoPort;
 import com.hyperativa.javaEspecialista.domain.ports.out.MetricsPort;
+import com.hyperativa.javaEspecialista.domain.ports.out.SecurityPort;
 
 @ExtendWith(MockitoExtension.class)
 class CardServiceTest {
@@ -44,8 +45,14 @@ class CardServiceTest {
     @Mock
     private AuditPort auditPort;
 
+    @Mock
+    private SecurityPort securityPort;
+
     @InjectMocks
     private CardService cardService;
+
+    private static final String USER = "user@example.com";
+    private static final String IP = "127.0.0.1";
 
     private static final String VALID_CARD_NUMBER = "1234567890123452";
     private static final byte[] HASH = "hash".getBytes();
@@ -59,6 +66,8 @@ class CardServiceTest {
         when(cardRepository.findUuidByHash(HASH)).thenReturn(Optional.empty());
         when(cryptoPort.generateIv()).thenReturn(IV);
         when(cryptoPort.encrypt(eq(VALID_CARD_NUMBER), eq(IV))).thenReturn(ENCRYPTED_WITH_TAG);
+        when(securityPort.getCurrentUser()).thenReturn(USER);
+        when(securityPort.getCurrentIp()).thenReturn(IP);
 
         // Act
         UUID result = cardService.registerCard(VALID_CARD_NUMBER);
@@ -68,6 +77,7 @@ class CardServiceTest {
         verify(cardRepository).save(any(Card.class));
         verify(metricsService).incrementCardsCreated();
         verify(metricsService, never()).incrementCardsAlreadyExists();
+        verify(auditPort).log(eq(USER), eq("CARD_REGISTERED"), any(), eq(IP), eq("SUCCESS"), any());
     }
 
     @Test
@@ -100,6 +110,8 @@ class CardServiceTest {
         UUID existingUuid = UUID.randomUUID();
         when(cryptoPort.hash(VALID_CARD_NUMBER)).thenReturn(HASH);
         when(cardRepository.findUuidByHash(HASH)).thenReturn(Optional.of(existingUuid));
+        when(securityPort.getCurrentUser()).thenReturn(USER);
+        when(securityPort.getCurrentIp()).thenReturn(IP);
 
         // Act
         Optional<UUID> result = cardService.findCardUuid(VALID_CARD_NUMBER);
@@ -108,6 +120,7 @@ class CardServiceTest {
         assertTrue(result.isPresent());
         assertEquals(existingUuid, result.get());
         verify(metricsService).recordCardLookup(true);
+        verify(auditPort).log(eq(USER), eq("CARD_LOOKUP"), eq(existingUuid.toString()), eq(IP), eq("SUCCESS"), any());
     }
 
     @Test
@@ -115,6 +128,8 @@ class CardServiceTest {
         // Arrange
         when(cryptoPort.hash(VALID_CARD_NUMBER)).thenReturn(HASH);
         when(cardRepository.findUuidByHash(HASH)).thenReturn(Optional.empty());
+        when(securityPort.getCurrentUser()).thenReturn(USER);
+        when(securityPort.getCurrentIp()).thenReturn(IP);
 
         // Act
         Optional<UUID> result = cardService.findCardUuid(VALID_CARD_NUMBER);
@@ -122,5 +137,6 @@ class CardServiceTest {
         // Assert
         assertFalse(result.isPresent());
         verify(metricsService).recordCardLookup(false);
+        verify(auditPort).log(eq(USER), eq("CARD_LOOKUP"), any(), eq(IP), eq("NOT_FOUND"), any());
     }
 }
