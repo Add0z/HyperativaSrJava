@@ -18,6 +18,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import java.util.HashSet;
+import java.util.Set;
+
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
@@ -120,6 +123,36 @@ class AuthControllerTest {
     @Test
     @WithMockUser
     void register_ShouldReturnOk() throws Exception {
+        Set<String> roles = new HashSet<>();
+        roles.add("ADMIN");
+        AuthController.RegisterRequest request = new AuthController.RegisterRequest("user", "StrongPass1!", roles);
+        doNothing().when(authService).register(anyString(), anyString(), org.mockito.ArgumentMatchers.any());
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @WithMockUser
+    void register_WithInvalidRole_ShouldIgnoreAndReturnOk() throws Exception {
+        Set<String> roles = new HashSet<>();
+        roles.add("INVALID_ROLE");
+        AuthController.RegisterRequest request = new AuthController.RegisterRequest("user", "StrongPass1!", roles);
+        doNothing().when(authService).register(anyString(), anyString(), org.mockito.ArgumentMatchers.any());
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @WithMockUser
+    void register_WithNullRoles_ShouldReturnOk() throws Exception {
         AuthController.RegisterRequest request = new AuthController.RegisterRequest("user", "StrongPass1!", null);
         doNothing().when(authService).register(anyString(), anyString(), org.mockito.ArgumentMatchers.any());
 
