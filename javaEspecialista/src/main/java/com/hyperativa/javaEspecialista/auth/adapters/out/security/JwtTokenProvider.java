@@ -31,7 +31,7 @@ public class JwtTokenProvider implements AuthService.TokenProvider {
     }
 
     @Override
-    public String generateToken(User user) {
+    public AuthService.AccessToken generateAccessToken(User user) {
         log.debug("Generating JWT token for user: {}", user.username());
         Instant now = Instant.now();
         String scope = user.roles().stream()
@@ -46,6 +46,7 @@ public class JwtTokenProvider implements AuthService.TokenProvider {
                 .claim("scope", scope)
                 .build();
 
-        return this.jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        String tokenValue = this.jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        return new AuthService.AccessToken(tokenValue, expirationSeconds);
     }
 }
