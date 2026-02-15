@@ -273,12 +273,12 @@ src/main/java/com/hyperativa/javaEspecialista/
 │   ├── ports/in/            # CardInputPort
 │   ├── ports/out/           # CardRepositoryPort, CryptoPort, MetricsPort, AuditPort
 │   └── exception/           # Domain exceptions
-├── auth/domain/             # Auth domain (also framework-free)
-│   ├── model/               # User, Role
-│   ├── service/             # AuthService
-│   ├── port/in/             # AuthInputPort
-│   ├── port/out/            # LoadUserPort, SaveUserPort, PasswordEncoderPort
-│   └── exception/           # AuthenticationException
+├── auth/
+│   ├── domain/              # Auth Domain (User, Role, AuthService)
+│   └── adapters/            # Auth persistence (JpaUserRepository)
+├── audit/                   # Audit Domain & Adapters (Compliance)
+│   ├── domain/              # Audit Port & Entity
+│   └── adapters/            # Audit Persistence Adapter
 ├── adapters/in/web/         # REST controllers, exception handler
 ├── adapters/in/file/        # Batch file processing
 ├── adapters/out/persistence/# MySQL repositories (Spring Data JDBC)
@@ -317,7 +317,17 @@ src/main/java/com/hyperativa/javaEspecialista/
 **Motivation**: Prevent failure cascading when MySQL or Redis are unavailable, releasing resources quickly and allowing graceful recovery.
 **Configuration**: Parameterized via `application.yml` with failure thresholds and half-open timeout.
 
-### 6. Liquibase for Schema Versioning
+### 6. Audit Logging (PCI DSS & LGPD)
+
+**Decision**: Synchronous audit logging for all sensitive operations.
+**Motivation**: Meet compliant requirements (PCI DSS Req 10) to track "who, what, and when". We chose **synchronous** logging to guarantee **non-repudiation** and consistency; if an action is confirmed to the user, the audit log is guaranteed to be saved.
+**Details**:
+
+- Captures **User ID** and **IP Address** for every action.
+- Covers Card operations (Register, Lookup, Delete) and Auth events (Login, Register).
+- Stores logs in specific `audit_logs` table.
+
+### 7. Liquibase for Schema Versioning
 
 **Decision**: Use Liquibase to manage database migrations.
 **Motivation**: Ensure traceability, reproducibility, and safety across all schema changes, from development to production.
