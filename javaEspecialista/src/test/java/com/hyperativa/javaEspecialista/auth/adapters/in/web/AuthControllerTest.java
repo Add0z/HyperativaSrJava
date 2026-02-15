@@ -8,10 +8,12 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.hyperativa.javaEspecialista.audit.adapters.out.persistence.repository.AuditLogRepository;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -29,7 +31,7 @@ import com.hyperativa.javaEspecialista.adapters.in.web.exception.GlobalException
 import com.hyperativa.javaEspecialista.auth.domain.port.in.AuthInputPort;
 import com.hyperativa.javaEspecialista.domain.ports.out.MetricsPort;
 
-@org.springframework.boot.test.context.SpringBootTest(properties = {
+@SpringBootTest(properties = {
         "JWT_PUBLIC_KEY=classpath:public.pem",
         "JWT_PRIVATE_KEY=classpath:private.pem",
         "spring.liquibase.enabled=false",
@@ -73,7 +75,7 @@ class AuthControllerTest {
     private com.hyperativa.javaEspecialista.auth.adapters.out.persistence.repo.UserRepository userRepository;
 
     @MockitoBean
-    private com.hyperativa.javaEspecialista.adapters.out.persistence.repo.AuditLogRepository auditLogRepository;
+    private AuditLogRepository auditLogRepository;
 
     @MockitoBean
     private org.springframework.data.jdbc.core.JdbcAggregateOperations jdbcAggregateOperations;

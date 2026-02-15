@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.hyperativa.javaEspecialista.audit.adapters.out.persistence.repository.AuditLogRepository;
 
 import java.util.ArrayList;
 import java.util.Optional;
@@ -59,7 +60,7 @@ class CardControllerTest {
     private com.hyperativa.javaEspecialista.auth.adapters.out.persistence.repo.UserRepository userRepository;
 
     @MockitoBean
-    private com.hyperativa.javaEspecialista.adapters.out.persistence.repo.AuditLogRepository auditLogRepository;
+    private AuditLogRepository auditLogRepository;
 
     @MockitoBean
     private org.springframework.data.jdbc.core.JdbcAggregateOperations jdbcAggregateOperations;
