@@ -41,6 +41,19 @@ public class JdbcUserAdapter
     }
 
     @Override
+    public Optional<User> loadUserById(UUID id) {
+        log.debug("Loading user by id: {}", id);
+        Optional<User> user = userRepository.findById(id.toString())
+                .map(this::toDomain);
+        if (user.isEmpty()) {
+            log.warn("User not found by id: {}", id);
+        } else {
+            log.debug("User found by id: {}", id);
+        }
+        return user;
+    }
+
+    @Override
     public void save(User user) {
         UserEntity entity = new UserEntity(
                 user.id().toString(),

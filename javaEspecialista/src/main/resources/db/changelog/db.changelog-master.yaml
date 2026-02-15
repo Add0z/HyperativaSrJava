@@ -7,3 +7,5 @@ databaseChangeLog:
       file: db/changelog/changes/003-create-audit-log-table.yaml
   - include:
       file: db/changelog/changes/004-add-expires-at-column.yaml
+  - include:
+      file: db/changelog/changes/005-create-refresh-tokens.yaml
