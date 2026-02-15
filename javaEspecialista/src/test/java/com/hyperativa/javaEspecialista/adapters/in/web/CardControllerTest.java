@@ -276,4 +276,38 @@ class CardControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    @WithMockUser(authorities = "SCOPE_ADMIN")
+    void deleteCard_WhenAdminAndExists_ShouldReturnNoContent() throws Exception {
+        when(cardInputPort.deleteCard(anyString())).thenReturn(true);
+
+        mockMvc.perform(post("/api/v1/cards/delete")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new CardRequest("1234567890123452"))))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithMockUser(authorities = "SCOPE_ADMIN")
+    void deleteCard_WhenAdminAndNotFound_ShouldReturnNotFound() throws Exception {
+        when(cardInputPort.deleteCard(anyString())).thenReturn(false);
+
+        mockMvc.perform(post("/api/v1/cards/delete")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new CardRequest("1234567890123452"))))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(authorities = "SCOPE_USER")
+    void deleteCard_WhenNotAdmin_ShouldReturnForbidden() throws Exception {
+        mockMvc.perform(post("/api/v1/cards/delete")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new CardRequest("1234567890123452"))))
+                .andExpect(status().isForbidden());
+    }
+
 }
