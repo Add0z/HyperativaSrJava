@@ -28,7 +28,14 @@ public class AuditRepositoryAdapter implements AuditPort {
     public void log(String userId, String action, String resourceId,
             String ipAddress, String result, String details) {
         try {
-            var entity = new AuditLogEntity(userId, action, resourceId, ipAddress, result, details);
+            // Ensure details is a valid JSON string if the column is JSON.
+            // If it's a plain string, wrap it in quotes.
+            String jsonDetails = details;
+            if (details != null && !details.startsWith("{") && !details.startsWith("[") && !details.startsWith("\"")) {
+                jsonDetails = "\"" + details.replace("\"", "\\\"") + "\"";
+            }
+
+            var entity = new AuditLogEntity(userId, action, resourceId, ipAddress, result, jsonDetails);
             auditLogRepository.save(entity);
             log.debug("Audit event recorded: action={}, user={}, result={}", action, userId, result);
         } catch (Exception e) {
