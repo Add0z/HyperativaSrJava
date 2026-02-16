@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hyperativa.javaEspecialista.auth.adapters.out.persistence.entity.UserEntity;
 import com.hyperativa.javaEspecialista.auth.adapters.out.persistence.entity.UserRoleEntity;
 import com.hyperativa.javaEspecialista.auth.adapters.out.persistence.repo.UserRepository;
+import com.hyperativa.javaEspecialista.auth.adapters.out.persistence.repository.RefreshTokenRepository;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -26,6 +28,10 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.Set;
+import java.util.UUID;
+
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 
 @SpringBootTest(properties = {
@@ -67,7 +73,10 @@ class AuthControllerIT {
         private UserRepository userRepository;
 
         @Autowired
-        private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+        private PasswordEncoder passwordEncoder;
+
+        @Autowired
+        private RefreshTokenRepository refreshTokenRepository;
 
         @BeforeEach
         void setUp() {
@@ -77,34 +86,36 @@ class AuthControllerIT {
 
                 var user = userRepository.findByUsername("admin").orElse(null);
                 if (user == null) {
-                        var roles = java.util.Set.of(
+                        var roles = Set.of(
                                         new UserRoleEntity(
                                                         "ADMIN"));
                         user = new UserEntity(
-                                        java.util.UUID.randomUUID().toString(), "admin",
-                                        passwordEncoder.encode("admin"), roles);
+                                        UUID.randomUUID().toString(), "admin",
+                                        passwordEncoder.encode("StrongPass1!admin"), roles);
                 } else {
-                        user.setPassword(passwordEncoder.encode("admin"));
+                        user.setPassword(passwordEncoder.encode("StrongPass1!admin"));
                 }
                 userRepository.save(user);
         }
 
         @AfterEach
         void tearDown() {
+                refreshTokenRepository.deleteAll();
                 userRepository.deleteAll();
         }
 
         @Test
         void shouldLoginSuccessfully() throws Exception {
                 // Arrange
-                var request = new AuthController.AuthRequest("admin", "admin");
+                var request = new AuthController.AuthRequest("admin", "StrongPass1!admin");
 
                 // Act & Assert
                 mockMvc.perform(post("/api/v1/auth/login")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
                                 .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.token").isNotEmpty());
+                                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                                .andExpect(jsonPath("$.refreshToken").isNotEmpty());
         }
 
         @Test

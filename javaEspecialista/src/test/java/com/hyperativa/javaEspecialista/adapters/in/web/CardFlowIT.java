@@ -93,11 +93,11 @@ class CardFlowIT {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(loginJson))
                                 .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.token").isNotEmpty())
+                                .andExpect(jsonPath("$.accessToken").isNotEmpty())
                                 .andReturn();
 
                 JsonNode loginResponse = objectMapper.readTree(loginResult.getResponse().getContentAsString());
-                String token = loginResponse.get("token").asText();
+                String token = loginResponse.get("accessToken").asText();
 
                 // Step 3: Register a card
                 String cardJson = """
