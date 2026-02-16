@@ -34,30 +34,32 @@ public class RefreshTokenRepositoryAdapter implements LoadRefreshTokenPort, Save
 
     @Override
     public void revokeAllUserTokens(UUID userId) {
-        repository.revokeAllByUserId(userId);
+        repository.revokeAllByUserId(userId.toString());
     }
 
     private RefreshToken toDomain(RefreshTokenEntity entity) {
         return new RefreshToken(
-                entity.getId(),
+                UUID.fromString(entity.getId()),
                 entity.getToken(),
-                entity.getUserId(),
+                UUID.fromString(entity.getUserId()),
                 entity.getExpiryDate(),
                 entity.isRevoked());
     }
 
     private RefreshTokenEntity toEntity(RefreshToken domain) {
-        UUID id = domain.id();
+        String id;
         boolean isNew = false;
-        if (id == null) {
-            id = UUID.randomUUID();
+        if (domain.id() == null) {
+            id = UUID.randomUUID().toString();
             isNew = true;
+        } else {
+            id = domain.id().toString();
         }
 
         RefreshTokenEntity entity = new RefreshTokenEntity(
                 id,
                 domain.token(),
-                domain.userId(),
+                domain.userId().toString(),
                 domain.expiryDate(),
                 domain.revoked());
         entity.setNew(isNew);

@@ -10,15 +10,15 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Table("refresh_tokens")
-public class RefreshTokenEntity implements Persistable<UUID> {
+public class RefreshTokenEntity implements Persistable<String> {
 
     @Id
-    private UUID id;
+    private String id;
 
     private String token;
 
     @Column("user_id")
-    private UUID userId;
+    private String userId;
 
     @Column("expiry_date")
     private Instant expiryDate;
@@ -31,7 +31,7 @@ public class RefreshTokenEntity implements Persistable<UUID> {
     public RefreshTokenEntity() {
     }
 
-    public RefreshTokenEntity(UUID id, String token, UUID userId, Instant expiryDate, boolean revoked) {
+    public RefreshTokenEntity(String id, String token, String userId, Instant expiryDate, boolean revoked) {
         this.id = id;
         this.token = token;
         this.userId = userId;
@@ -40,11 +40,11 @@ public class RefreshTokenEntity implements Persistable<UUID> {
     }
 
     @Override
-    public UUID getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -65,11 +65,11 @@ public class RefreshTokenEntity implements Persistable<UUID> {
         this.token = token;
     }
 
-    public UUID getUserId() {
+    public String getUserId() {
         return userId;
     }
 
-    public void setUserId(UUID userId) {
+    public void setUserId(String userId) {
         this.userId = userId;
     }
 

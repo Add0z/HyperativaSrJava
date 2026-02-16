@@ -11,13 +11,13 @@ import java.util.UUID;
 import java.util.List;
 
 @Repository
-public interface RefreshTokenRepository extends CrudRepository<RefreshTokenEntity, UUID> {
+public interface RefreshTokenRepository extends CrudRepository<RefreshTokenEntity, String> {
 
     Optional<RefreshTokenEntity> findByToken(String token);
 
     @Modifying
     @Query("UPDATE refresh_tokens SET revoked = true WHERE user_id = :userId")
-    void revokeAllByUserId(UUID userId);
+    void revokeAllByUserId(String userId);
 
-    List<RefreshTokenEntity> findAllByUserId(UUID userId);
+    List<RefreshTokenEntity> findAllByUserId(String userId);
 }
