@@ -10,15 +10,30 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import com.hyperativa.javaEspecialista.audit.adapters.out.persistence.repository.AuditLogRepository;
+import com.hyperativa.javaEspecialista.auth.adapters.out.persistence.repo.UserRepository;
+import com.hyperativa.javaEspecialista.auth.adapters.out.persistence.repository.RefreshTokenRepository;
 
+import java.io.PrintWriter;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.logging.Logger;
+
+import javax.sql.DataSource;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
+import org.springframework.data.jdbc.core.JdbcAggregateOperations;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
@@ -36,10 +51,13 @@ import com.hyperativa.javaEspecialista.adapters.in.file.BatchFileAdapter;
 import com.hyperativa.javaEspecialista.adapters.in.web.dto.BatchResponse;
 import com.hyperativa.javaEspecialista.adapters.in.web.dto.CardRequest;
 import com.hyperativa.javaEspecialista.adapters.in.web.exception.GlobalExceptionHandler;
+import com.hyperativa.javaEspecialista.adapters.out.persistence.repo.CardRepository;
+import com.hyperativa.javaEspecialista.domain.exception.CardValidationException;
+import com.hyperativa.javaEspecialista.domain.exception.DuplicateCardException;
 import com.hyperativa.javaEspecialista.domain.ports.in.CardInputPort;
 import com.hyperativa.javaEspecialista.domain.ports.out.MetricsPort;
 
-@org.springframework.boot.test.context.SpringBootTest(properties = {
+@SpringBootTest(properties = {
         "ENCRYPTION_KEY=12345678901234567890123456789012",
         "HASH_KEY=12345678901234567890123456789012",
         "JWT_PUBLIC_KEY=classpath:public.pem",
@@ -54,16 +72,19 @@ import com.hyperativa.javaEspecialista.domain.ports.out.MetricsPort;
 class CardControllerTest {
 
     @MockitoBean
-    private com.hyperativa.javaEspecialista.adapters.out.persistence.repo.CardRepository cardRepository;
+    private CardRepository cardRepository;
 
     @MockitoBean
-    private com.hyperativa.javaEspecialista.auth.adapters.out.persistence.repo.UserRepository userRepository;
+    private UserRepository userRepository;
+
+    @MockitoBean
+    private RefreshTokenRepository refreshTokenRepository;
 
     @MockitoBean
     private AuditLogRepository auditLogRepository;
 
     @MockitoBean
-    private org.springframework.data.jdbc.core.JdbcAggregateOperations jdbcAggregateOperations;
+    private JdbcAggregateOperations jdbcAggregateOperations;
 
     @Autowired
     private WebApplicationContext context;
@@ -122,7 +143,7 @@ class CardControllerTest {
     void registerCard_WhenCardExists_ShouldReturnConflict() throws Exception {
         CardRequest request = new CardRequest("1234567890123452");
         when(cardInputPort.registerCard(anyString()))
-                .thenThrow(new com.hyperativa.javaEspecialista.domain.exception.DuplicateCardException(
+                .thenThrow(new DuplicateCardException(
                         "Card already registered"));
 
         mockMvc.perform(post("/api/v1/cards")
@@ -160,40 +181,40 @@ class CardControllerTest {
                 .andExpect(jsonPath("$.totalLinesProcessed").value(10));
     }
 
-    @org.springframework.boot.test.context.TestConfiguration
+    @TestConfiguration
     static class TestConfig {
 
-        @org.springframework.context.annotation.Bean
-        public com.fasterxml.jackson.databind.ObjectMapper objectMapper() {
-            return new com.fasterxml.jackson.databind.ObjectMapper();
+        @Bean
+        public ObjectMapper objectMapper() {
+            return new ObjectMapper();
         }
 
-        @org.springframework.context.annotation.Bean
-        @org.springframework.context.annotation.Primary
-        public javax.sql.DataSource dataSource() {
-            return new javax.sql.DataSource() {
+        @Bean
+        @Primary
+        public DataSource dataSource() {
+            return new DataSource() {
                 @Override
-                public java.sql.Connection getConnection() throws java.sql.SQLException {
-                    java.sql.Connection connection = org.mockito.Mockito.mock(java.sql.Connection.class);
-                    java.sql.DatabaseMetaData metaData = org.mockito.Mockito.mock(java.sql.DatabaseMetaData.class);
-                    org.mockito.Mockito.when(connection.getMetaData()).thenReturn(metaData);
-                    org.mockito.Mockito.when(metaData.getDatabaseProductName()).thenReturn("MySQL");
+                public Connection getConnection() throws SQLException {
+                    Connection connection = Mockito.mock(Connection.class);
+                    DatabaseMetaData metaData = Mockito.mock(DatabaseMetaData.class);
+                    Mockito.when(connection.getMetaData()).thenReturn(metaData);
+                    Mockito.when(metaData.getDatabaseProductName()).thenReturn("MySQL");
                     return connection;
                 }
 
                 @Override
-                public java.sql.Connection getConnection(String username, String password)
-                        throws java.sql.SQLException {
+                public Connection getConnection(String username, String password)
+                        throws SQLException {
                     return getConnection();
                 }
 
                 @Override
-                public java.io.PrintWriter getLogWriter() {
+                public PrintWriter getLogWriter() {
                     return null;
                 }
 
                 @Override
-                public void setLogWriter(java.io.PrintWriter out) {
+                public void setLogWriter(PrintWriter out) {
                 }
 
                 @Override
@@ -206,8 +227,8 @@ class CardControllerTest {
                 }
 
                 @Override
-                public java.util.logging.Logger getParentLogger() {
-                    return java.util.logging.Logger.getLogger(java.util.logging.Logger.GLOBAL_LOGGER_NAME);
+                public Logger getParentLogger() {
+                    return Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
                 }
 
                 @Override
@@ -243,7 +264,7 @@ class CardControllerTest {
     void handleIllegalArgumentException_ShouldReturnBadRequest() throws Exception {
         CardRequest request = new CardRequest("1234567890123452");
         when(cardInputPort.registerCard(anyString()))
-                .thenThrow(new com.hyperativa.javaEspecialista.domain.exception.CardValidationException("Luhn failed"));
+                .thenThrow(new CardValidationException("Luhn failed"));
 
         mockMvc.perform(post("/api/v1/cards")
                 .with(csrf())
